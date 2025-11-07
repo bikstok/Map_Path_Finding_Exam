@@ -174,11 +174,32 @@ app.post('/api/route', async (req,res)=>{
   const startNode = findNearestNode(startLat, startLng, graphData.nodeCoords);
   const endNode = findNearestNode(endLat, endLng, graphData.nodeCoords);
 
+  if(!startNode || !endNode){
+    return res.json({error: 'Klik for langt fra veje i grafen.'});
+  }
+
+  const startTime = Date.now(); // start tid
+
   let result;
   if(algorithm === 'dfs'){
     result = dfs(startNode, endNode, graphData.graph);
   } else {
     result = aStar(startNode, endNode, graphData.graph);
+  }
+
+  const endTime = Date.now(); // slut tid
+  const durationMs = endTime - startTime;
+
+  if(result && result.path){
+    // Beregn distance i km
+    let totalDist = 0;
+    const pathNodes = result.path.map(n => n.split(',').map(Number));
+    for(let i=0; i<pathNodes.length-1; i++){
+      totalDist += haversine(pathNodes[i][0], pathNodes[i][1], pathNodes[i+1][0], pathNodes[i+1][1]);
+    }
+    totalDist = (totalDist/1000).toFixed(2); // km
+    result.distanceKm = totalDist;
+    result.durationMs = durationMs;
   }
 
   res.json(result);

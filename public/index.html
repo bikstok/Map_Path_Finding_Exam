@@ -54,23 +54,28 @@
         })
         .then(res=>res.json())
         .then(data=>{
-          if(!data || !data.path){
-            alert('Ingen rute fundet!');
-            cleanup();
-            return;
-          }
+  if(!data || !data.path){
+    alert('Ingen rute fundet!');
+    cleanup();
+    return;
+  }
 
-          const route = data.path.map(n=>{
-            const [lat,lng] = n.split(',').map(Number);
-            return [lat,lng];
-          });
+  const route = data.path.map(n=>{
+    const [lat,lng] = n.split(',').map(Number);
+    return [lat,lng];
+  });
 
-          // Tegn rute
-          L.polyline(route,{color:'red',weight:5}).addTo(map);
+  // Tegn ruten
+  L.polyline(route,{color:'red',weight:5}).addTo(map);
 
-          alert(`Rute fundet! Besøgte noder: ${data.visitedNodes.length}`);
-          cleanup();
-        });
+  // Vis benchmarking
+  alert(`Rute fundet!
+Distance: ${data.distanceKm} km
+Besøgte noder: ${data.visitedNodes.length}
+Beregnings tid: ${data.durationMs} ms`);
+
+  cleanup();
+});
       }
     });
 
