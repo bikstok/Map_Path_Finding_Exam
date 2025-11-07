@@ -15,10 +15,16 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
     let clicks = [];
+    let markers = [];
 
     map.on('click', e=>{
       clicks.push(e.latlng);
-      if(clicks.length===2){
+
+      // Tilføj markør for klik
+      const marker = L.marker(e.latlng).addTo(map);
+      markers.push(marker);
+
+      if(clicks.length === 2){
         fetch('/api/route',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
@@ -29,11 +35,11 @@
             endLng: clicks[1].lng
           })
         })
-        .then(res=>res.json())
-        .then(data=>{
+        .then(res => res.json())
+        .then(data => {
           if(!data || !data.path){
             alert('Ingen rute fundet!');
-            clicks=[];
+            cleanup();
             return;
           }
 
@@ -42,12 +48,21 @@
             return [lat,lng];
           });
 
+          // Tegn ruten
           L.polyline(route,{color:'red',weight:5}).addTo(map);
+
           alert(`Rute fundet! Besøgte noder: ${data.visitedNodes.length}`);
-          clicks=[];
+          cleanup();
         });
       }
     });
+
+    // Fjern markører og klik-array
+    function cleanup(){
+      clicks = [];
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+    }
   </script>
 </body>
 </html>
