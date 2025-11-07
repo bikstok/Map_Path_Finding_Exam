@@ -150,6 +150,50 @@ function aStar(start, end, graph){
   return null;
 }
 
+function dijkstra(start, end, graph){
+  const distances = {};
+  const previous = {};
+  const visitedNodes = new Set();
+  const pq = new Map(); // simpel priority queue med Map
+
+  // Initialiser
+  for(let node in graph){
+    distances[node] = Infinity;
+    previous[node] = null;
+  }
+  distances[start] = 0;
+  pq.set(start, 0);
+
+  while(pq.size > 0){
+    // find node med lavest distance
+    let current = [...pq.entries()].reduce((a,b)=>a[1]<b[1]?a:b)[0];
+    pq.delete(current);
+    visitedNodes.add(current);
+
+    if(current === end){
+      let path = [];
+      let temp = current;
+      while(temp){
+        path.unshift(temp);
+        temp = previous[temp];
+      }
+      return {path, visitedNodes:[...visitedNodes]};
+    }
+
+    for(let neighbor in graph[current]){
+      const weight = graph[current][neighbor] || 1; // vægt = 1 hvis ikke defineret
+      const alt = distances[current] + weight;
+      if(alt < distances[neighbor]){
+        distances[neighbor] = alt;
+        previous[neighbor] = current;
+        pq.set(neighbor, alt);
+      }
+    }
+  }
+
+  return null; // ingen sti fundet
+}
+
 let graphData = null;
 
 // Load graf fra fil eller hent fra Overpass
@@ -181,11 +225,13 @@ app.post('/api/route', async (req,res)=>{
   const startTime = Date.now(); // start tid
 
   let result;
-  if(algorithm === 'dfs'){
-    result = dfs(startNode, endNode, graphData.graph);
-  } else {
-    result = aStar(startNode, endNode, graphData.graph);
-  }
+if(algorithm === 'dfs'){
+  result = dfs(startNode, endNode, graphData.graph);
+} else if(algorithm === 'dijkstra'){
+  result = dijkstra(startNode, endNode, graphData.graph);
+} else {
+  result = aStar(startNode, endNode, graphData.graph);
+}
 
   const endTime = Date.now(); // slut tid
   const durationMs = endTime - startTime;

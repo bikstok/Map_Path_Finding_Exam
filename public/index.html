@@ -11,10 +11,12 @@
 </head>
 <body>
   <h2>Storkøbenhavn Korteste Vej Finder</h2>
+
   <div id="controls">
-    <button id="algoBtn">Skift algoritme (A* / DFS)</button>
+    <button id="algoBtn">Skift algoritme</button>
     <span>Valgt algoritme: <span id="currentAlgo">A*</span></span>
   </div>
+
   <div id="map"></div>
 
   <script>
@@ -24,13 +26,16 @@
     let clicks = [];
     let markers = [];
     let algorithm = 'astar';
+    const algoOptions = ['astar','dfs','dijkstra'];
+    let algoIndex = 0;
 
     const algoBtn = document.getElementById('algoBtn');
     const currentAlgoLabel = document.getElementById('currentAlgo');
 
     algoBtn.addEventListener('click', ()=>{
-      algorithm = (algorithm === 'astar') ? 'dfs' : 'astar';
-      currentAlgoLabel.textContent = (algorithm === 'astar') ? 'A*' : 'DFS';
+      algoIndex = (algoIndex+1)%algoOptions.length;
+      algorithm = algoOptions[algoIndex];
+      currentAlgoLabel.textContent = algorithm.toUpperCase();
     });
 
     map.on('click', e=>{
@@ -54,28 +59,28 @@
         })
         .then(res=>res.json())
         .then(data=>{
-  if(!data || !data.path){
-    alert('Ingen rute fundet!');
-    cleanup();
-    return;
-  }
+          if(!data || !data.path){
+            alert('Ingen rute fundet!');
+            cleanup();
+            return;
+          }
 
-  const route = data.path.map(n=>{
-    const [lat,lng] = n.split(',').map(Number);
-    return [lat,lng];
-  });
+          const route = data.path.map(n=>{
+            const [lat,lng] = n.split(',').map(Number);
+            return [lat,lng];
+          });
 
-  // Tegn ruten
-  L.polyline(route,{color:'red',weight:5}).addTo(map);
+          // Tegn ruten
+          L.polyline(route,{color:'blue',weight:5}).addTo(map);
 
-  // Vis benchmarking
-  alert(`Rute fundet!
+          // Vis distance og beregningstid
+          alert(`Rute fundet!
 Distance: ${data.distanceKm} km
 Besøgte noder: ${data.visitedNodes.length}
 Beregnings tid: ${data.durationMs} ms`);
 
-  cleanup();
-});
+          cleanup();
+        });
       }
     });
 
