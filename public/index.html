@@ -4,23 +4,39 @@
   <title>Storkøbenhavn Korteste Vej Finder</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <style>#map{height:600px;width:100%;}</style>
+  <style>
+    #map {height:600px;width:100%;}
+    #controls {margin:10px;}
+  </style>
 </head>
 <body>
-  <h2>Klik to punkter for at finde ruten i Storkøbenhavn</h2>
+  <h2>Storkøbenhavn Korteste Vej Finder</h2>
+  <div id="controls">
+    <button id="algoBtn">Skift algoritme (A* / DFS)</button>
+    <span>Valgt algoritme: <span id="currentAlgo">A*</span></span>
+  </div>
   <div id="map"></div>
 
   <script>
-    const map = L.map('map').setView([55.676,12.558],12); // Storkøbenhavn
+    const map = L.map('map').setView([55.676,12.558],12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
     let clicks = [];
     let markers = [];
+    let algorithm = 'astar';
+
+    const algoBtn = document.getElementById('algoBtn');
+    const currentAlgoLabel = document.getElementById('currentAlgo');
+
+    algoBtn.addEventListener('click', ()=>{
+      algorithm = (algorithm === 'astar') ? 'dfs' : 'astar';
+      currentAlgoLabel.textContent = (algorithm === 'astar') ? 'A*' : 'DFS';
+    });
 
     map.on('click', e=>{
       clicks.push(e.latlng);
 
-      // Tilføj markør for klik
+      // Tilføj markør
       const marker = L.marker(e.latlng).addTo(map);
       markers.push(marker);
 
@@ -32,11 +48,12 @@
             startLat: clicks[0].lat,
             startLng: clicks[0].lng,
             endLat: clicks[1].lat,
-            endLng: clicks[1].lng
+            endLng: clicks[1].lng,
+            algorithm
           })
         })
-        .then(res => res.json())
-        .then(data => {
+        .then(res=>res.json())
+        .then(data=>{
           if(!data || !data.path){
             alert('Ingen rute fundet!');
             cleanup();
@@ -48,7 +65,7 @@
             return [lat,lng];
           });
 
-          // Tegn ruten
+          // Tegn rute
           L.polyline(route,{color:'red',weight:5}).addTo(map);
 
           alert(`Rute fundet! Besøgte noder: ${data.visitedNodes.length}`);
@@ -57,7 +74,6 @@
       }
     });
 
-    // Fjern markører og klik-array
     function cleanup(){
       clicks = [];
       markers.forEach(m => map.removeLayer(m));

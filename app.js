@@ -72,6 +72,40 @@ function findNearestNode(lat, lng, nodeCoords){
   return nearest;
 }
 
+// Depth-First Search
+function dfs(start, end, graph){
+  const stack = [start];
+  const visited = new Set();
+  const cameFrom = {};
+  const visitedNodes = new Set();
+
+  while(stack.length > 0){
+    const current = stack.pop();
+    visitedNodes.add(current);
+
+    if(current === end){
+      let path = [];
+      let temp = current;
+      while(temp){
+        path.unshift(temp);
+        temp = cameFrom[temp];
+      }
+      return {path, visitedNodes:[...visitedNodes]};
+    }
+
+    if(visited.has(current)) continue;
+    visited.add(current);
+
+    for(let neighbor in graph[current]){
+      if(!visited.has(neighbor)){
+        stack.push(neighbor);
+        if(!cameFrom[neighbor]) cameFrom[neighbor] = current;
+      }
+    }
+  }
+  return null;
+}
+
 // Simplified A* (heuristik = luftlinje)
 function aStar(start, end, graph){
   const openSet = [start];
@@ -135,12 +169,18 @@ async function loadGraph() {
 app.post('/api/route', async (req,res)=>{
   if(!graphData) await loadGraph();
 
-  const {startLat, startLng, endLat, endLng} = req.body;
+  const {startLat, startLng, endLat, endLng, algorithm} = req.body;
 
   const startNode = findNearestNode(startLat, startLng, graphData.nodeCoords);
   const endNode = findNearestNode(endLat, endLng, graphData.nodeCoords);
 
-  const result = aStar(startNode, endNode, graphData.graph);
+  let result;
+  if(algorithm === 'dfs'){
+    result = dfs(startNode, endNode, graphData.graph);
+  } else {
+    result = aStar(startNode, endNode, graphData.graph);
+  }
+
   res.json(result);
 });
 
