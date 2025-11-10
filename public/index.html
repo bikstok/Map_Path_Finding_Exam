@@ -1,90 +1,87 @@
 <!DOCTYPE html>
-<html>
+<html lang="da">
 <head>
-  <title>Storkøbenhavn Korteste Vej Finder</title>
+  <meta charset="UTF-8">
+  <title>Storkøbenhavn – Korteste vej (kun højresving)</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <style>
-    #map {height:600px;width:100%;}
-    #controls {margin:10px;}
+    #map { height: 600px; width: 100%; }
+    #controls { margin: 10px; }
   </style>
 </head>
 <body>
-  <h2>Storkøbenhavn Korteste Vej Finder</h2>
+  <h2>Storkøbenhavn Korteste Vej Finder (kun højresving)</h2>
 
   <div id="controls">
-    <button id="algoBtn">Skift algoritme</button>
-    <span>Valgt algoritme: <span id="currentAlgo">A*</span></span>
+    <button id="resetBtn">Nulstil</button>
   </div>
 
   <div id="map"></div>
 
   <script>
-    const map = L.map('map').setView([55.676,12.558],12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    const map = L.map('map').setView([55.676, 12.558], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
 
     let clicks = [];
     let markers = [];
-    let algorithm = 'astar';
-    const algoOptions = ['A*','dfs','dijkstra'];
-    let algoIndex = 0;
 
-    const algoBtn = document.getElementById('algoBtn');
-    const currentAlgoLabel = document.getElementById('currentAlgo');
-
-    algoBtn.addEventListener('click', ()=>{
-      algoIndex = (algoIndex+1)%algoOptions.length;
-      algorithm = algoOptions[algoIndex];
-      currentAlgoLabel.textContent = algorithm.toUpperCase();
-    });
-
-    map.on('click', e=>{
+    // Klik på kortet
+    map.on('click', e => {
       clicks.push(e.latlng);
-
-      // Tilføj markør
       const marker = L.marker(e.latlng).addTo(map);
       markers.push(marker);
 
-      if(clicks.length === 2){
-        fetch('/api/route',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
+      if (clicks.length === 2) {
+        const [start, end] = clicks;
+
+        fetch('/api/route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            startLat: clicks[0].lat,
-            startLng: clicks[0].lng,
-            endLat: clicks[1].lat,
-            endLng: clicks[1].lng,
-            algorithm
+            startLat: start.lat,
+            startLng: start.lng,
+            endLat: end.lat,
+            endLng: end.lng
           })
         })
-        .then(res=>res.json())
-        .then(data=>{
-          if(!data || !data.path){
-            alert('Ingen rute fundet!');
+        .then(res => res.json())
+        .then(data => {
+          if (!data || !data.path) {
+            alert('Ingen rute fundet – måske ingen højresvingrute muligt.');
             cleanup();
             return;
           }
 
-          const route = data.path.map(n=>{
-            const [lat,lng] = n.split(',').map(Number);
-            return [lat,lng];
+          const route = data.path.map(n => {
+            const [lat, lng] = n.split(',').map(Number);
+            return [lat, lng];
           });
 
           // Tegn ruten
-          L.polyline(route,{color:'blue',weight:5}).addTo(map);
+          L.polyline(route, { color: 'blue', weight: 5 }).addTo(map);
 
-          // Vis distance og beregningstid
           alert(`Rute fundet!
 Distance: ${data.distanceKm} km
 Besøgte noder: ${data.visitedNodes.length}
 Beregnings tid: ${data.durationMs} ms`);
 
           cleanup();
+        })
+        .catch(err => {
+          console.error(err);
+          alert('Fejl under ruteudregning.');
+          cleanup();
         });
       }
     });
 
-    function cleanup(){
+    // Ryd kortet
+    document.getElementById('resetBtn').addEventListener('click', cleanup);
+
+    function cleanup() {
       clicks = [];
       markers.forEach(m => map.removeLayer(m));
       markers = [];
