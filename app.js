@@ -18,37 +18,6 @@ function haversine(lat1, lon1, lat2, lon2){
   return R*c;
 }
 
-// Depth-First Search
-function dfs(start, end, graph){
-  const stack = [start];
-  const visited = new Set();
-  const cameFrom = {};
-  const visitedNodes = new Set();
-
-  while(stack.length > 0){
-    const current = stack.pop();
-    visitedNodes.add(current);
-    if(current === end){
-      let path = [];
-      let temp = current;
-      while(temp){
-        path.unshift(temp);
-        temp = cameFrom[temp];
-      }
-      return {path, visitedNodes:[...visitedNodes]};
-    }
-    if(visited.has(current)) continue;
-    visited.add(current);
-    for(let neighbor in graph[current]){
-      if(!visited.has(neighbor)){
-        stack.push(neighbor);
-        if(!cameFrom[neighbor]) cameFrom[neighbor] = current;
-      }
-    }
-  }
-  return null;
-}
-
 // Dijkstra
 function dijkstra(start, end, graph){
   const distances = {};
@@ -87,64 +56,6 @@ function dijkstra(start, end, graph){
     }
   }
   return null;
-}
-
-// Rigtig A* med heuristik
-function aStar(start, end, graph, nodeCoords){
-  const openSet = new Set([start]);
-  const cameFrom = {};
-  const gScore = {};
-  const fScore = {};
-  const visitedNodes = new Set();
-
-  for(let node in graph){
-    gScore[node] = Infinity;
-    fScore[node] = Infinity;
-  }
-
-  gScore[start] = 0;
-  fScore[start] = haversine(nodeCoords[start].lat,nodeCoords[start].lon,nodeCoords[end].lat,nodeCoords[end].lon);
-
-  while(openSet.size > 0){
-    // Node med lavest fScore
-    let current = null;
-    let minF = Infinity;
-    openSet.forEach(n=>{
-      if(fScore[n]<minF){
-        minF = fScore[n];
-        current = n;
-      }
-    });
-
-    visitedNodes.add(current);
-
-    if(current===end){
-      let path = [];
-      let temp = current;
-      while(temp){
-        path.unshift(temp);
-        temp = cameFrom[temp];
-      }
-      return {path, visitedNodes:[...visitedNodes]};
-    }
-
-    openSet.delete(current);
-
-    for(let neighbor in graph[current]){
-      let tentativeG = gScore[current]+graph[current][neighbor];
-      if(tentativeG<gScore[neighbor]){
-        cameFrom[neighbor]=current;
-        gScore[neighbor]=tentativeG;
-        fScore[neighbor]=tentativeG + haversine(
-          nodeCoords[neighbor].lat,nodeCoords[neighbor].lon,
-          nodeCoords[end].lat,nodeCoords[end].lon
-        );
-        openSet.add(neighbor);
-      }
-    }
-  }
-
-  return null; // ingen sti fundet
 }
 
 // Find nærmeste node
@@ -186,9 +97,8 @@ app.post('/api/route', async (req,res)=>{
 
   const startTime = Date.now();
   let result;
-  if(algorithm==='dfs') result = dfs(startNode,endNode,graphData.graph);
-  else if(algorithm==='dijkstra') result = dijkstra(startNode,endNode,graphData.graph);
-  else result = aStar(startNode,endNode,graphData.graph,graphData.nodeCoords);
+  result = dijkstra(startNode,endNode,graphData.graph);
+  
 
   const durationMs = Date.now()-startTime;
 

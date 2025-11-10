@@ -14,7 +14,7 @@
 
   <div id="controls">
     <button id="algoBtn">Skift algoritme</button>
-    <span>Valgt algoritme: <span id="currentAlgo">A*</span></span>
+    <span>Valgt algoritme: <span id="currentAlgo">dijkstra</span></span>
   </div>
 
   <div id="map"></div>
@@ -25,8 +25,8 @@
 
     let clicks = [];
     let markers = [];
-    let algorithm = 'astar';
-    const algoOptions = ['A*','dfs','dijkstra'];
+    let algorithm = 'dijkstra';
+    const algoOptions = ['dijkstra'];
     let algoIndex = 0;
 
     const algoBtn = document.getElementById('algoBtn');
