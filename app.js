@@ -4,7 +4,7 @@ const fs = require('fs');
 const app = express();
 app.use(express.json());
 
-const GRAPH_FILE = 'storkbh_graph.json';
+const GRAPH_FILE = 'storkbh_graph_name.json';
 
 // Haversine distance
 function haversine(lat1, lon1, lat2, lon2){
@@ -18,47 +18,7 @@ function haversine(lat1, lon1, lat2, lon2){
   return R*c;
 }
 
-// Dijkstra
-function dijkstra(start, end, graph){
-  const distances = {};
-  const previous = {};
-  const visitedNodes = new Set();
-  const pq = new Map();
-  for(let node in graph){
-    distances[node] = Infinity;
-    previous[node] = null;
-  }
-  distances[start] = 0;
-  pq.set(start, 0);
-
-  while(pq.size > 0){
-    let current = [...pq.entries()].reduce((a,b)=>a[1]<b[1]?a:b)[0];
-    pq.delete(current);
-    visitedNodes.add(current);
-
-    if(current === end){
-      let path = [];
-      let temp = current;
-      while(temp){
-        path.unshift(temp);
-        temp = previous[temp];
-      }
-      return {path, visitedNodes:[...visitedNodes]};
-    }
-
-    for(let neighbor in graph[current]){
-      const alt = distances[current] + graph[current][neighbor];
-      if(alt < distances[neighbor]){
-        distances[neighbor] = alt;
-        previous[neighbor] = current;
-        pq.set(neighbor, alt);
-      }
-    }
-  }
-  return null;
-}
-
-// Find nærmeste node
+// Find nearest node
 function findNearestNode(lat,lng,nodeCoords){
   let nearest = null;
   let minDist = Infinity;
@@ -73,15 +33,126 @@ function findNearestNode(lat,lng,nodeCoords){
   return nearest;
 }
 
+// Dijkstra
+// Dijkstra med unikke vejnavne
+function dijkstra(start, end, graph){
+  const distances = {};
+  const previous = {};
+  const visitedNodes = new Set();
+  const pq = new Map();
+
+  for(let node in graph){
+    distances[node] = Infinity;
+    previous[node] = null;
+  }
+  distances[start] = 0;
+  pq.set(start, 0);
+
+  while(pq.size > 0){
+    let current = [...pq.entries()].reduce((a,b)=>a[1]<b[1]?a:b)[0];
+    pq.delete(current);
+    visitedNodes.add(current);
+
+    if(current === end){
+      let path = [];
+      let edges = [];
+      let temp = current;
+      const seenNames = new Set(); // til at tracke allerede tilføjede vejnavne
+
+      while(temp){
+        const prev = previous[temp];
+        if(prev){
+          const edge = graph[prev][temp];
+          // Tilføj kun hvis vejnavnet ikke er set før
+          if(edge.name && !seenNames.has(edge.name)){
+            edges.unshift({
+              from: prev,
+              to: temp,
+              distance: edge.distance,
+              name: edge.name
+            });
+            seenNames.add(edge.name);
+          }
+        }
+        path.unshift(temp);
+        temp = prev;
+      }
+      return { path, edges, visitedNodes:[...visitedNodes] };
+    }
+
+    for(let neighbor in graph[current]){
+      const edge = graph[current][neighbor];
+
+      if(edge.name && edge.name.toLowerCase().includes("amager")) continue;
+
+      const alt = distances[current] + edge.distance;
+      if(alt < distances[neighbor]){
+        distances[neighbor] = alt;
+        previous[neighbor] = current;
+        pq.set(neighbor, alt);
+      }
+    }
+  }
+  return null;
+}
+
+
+// Fetch OSM roads with names
+async function fetchOSMRoads(){
+  console.log('Henter data fra Overpass API...');
+  const query = `
+    [out:json][timeout:300];
+    way["highway"]["name"]["highway"~"primary|secondary|tertiary|residential"](55.55,12.45,55.75,12.65);
+    out geom;
+  `;
+  const res = await axios.get('https://overpass-api.de/api/interpreter',{params:{data:query}});
+  return res.data.elements.map(way => ({
+    id: way.id,
+    nodes: way.geometry,
+    name: way.tags?.name || 'Uden navn'
+  }));
+}
+
+// Build graph
+function buildGraph(osmWays){
+  const graph = {};
+  const nodeCoords = {};
+
+  osmWays.forEach(way => {
+    const nodes = way.nodes;
+    const name = way.name;
+
+    for(let i=0;i<nodes.length;i++){
+      const {lat, lon} = nodes[i];
+      const nodeId = `${lat},${lon}`;
+      nodeCoords[nodeId] = {lat, lon};
+      if(!graph[nodeId]) graph[nodeId] = {};
+
+      if(i>0){
+        const prev = nodes[i-1];
+        const prevId = `${prev.lat},${prev.lon}`;
+        const dist = haversine(lat, lon, prev.lat, prev.lon);
+        graph[nodeId][prevId] = { distance: dist, name };
+        graph[prevId][nodeId] = { distance: dist, name };
+      }
+    }
+  });
+
+  return { graph, nodeCoords };
+}
+
 let graphData = null;
 
-// Load graf
+// Load or fetch graph
 async function loadGraph(){
   if(fs.existsSync(GRAPH_FILE)){
     console.log('Loader graf fra fil...');
     graphData = JSON.parse(fs.readFileSync(GRAPH_FILE));
   } else {
-    console.log('Ingen graffil fundet. Opret en storkbh_graph.json først.');
+    const osmWays = await fetchOSMRoads();
+    graphData = buildGraph(osmWays);
+    fs.writeFileSync(GRAPH_FILE, JSON.stringify(graphData));
+    console.log('Graf gemt lokalt med vejnavne.');
   }
 }
 
@@ -89,17 +160,14 @@ async function loadGraph(){
 app.post('/api/route', async (req,res)=>{
   if(!graphData) await loadGraph();
 
-  const {startLat,startLng,endLat,endLng,algorithm} = req.body;
+  const {startLat,startLng,endLat,endLng} = req.body;
   const startNode = findNearestNode(startLat,startLng,graphData.nodeCoords);
   const endNode = findNearestNode(endLat,endLng,graphData.nodeCoords);
 
   if(!startNode || !endNode) return res.json({error:'Klik for langt fra veje i grafen.'});
 
   const startTime = Date.now();
-  let result;
-  result = dijkstra(startNode,endNode,graphData.graph);
-  
-
+  const result = dijkstra(startNode,endNode,graphData.graph);
   const durationMs = Date.now()-startTime;
 
   if(result && result.path){

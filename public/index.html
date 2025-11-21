@@ -7,6 +7,15 @@
   <style>
     #map {height:600px;width:100%;}
     #controls {margin:10px;}
+    .road-label {
+      background: white;
+      padding: 2px 4px;
+      border: 1px solid black;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -65,19 +74,28 @@
             return;
           }
 
-          const route = data.path.map(n=>{
-            const [lat,lng] = n.split(',').map(Number);
-            return [lat,lng];
-          });
-
-          // Tegn ruten
+          const route = data.path.map(n=>n.split(',').map(Number));
           L.polyline(route,{color:'blue',weight:5}).addTo(map);
 
-          // Vis distance og beregningstid
+          // Tilføj vejnavne langs ruten
+          data.edges.forEach(edge=>{
+            const [lat1,lng1] = edge.from.split(',').map(Number);
+            const [lat2,lng2] = edge.to.split(',').map(Number);
+            const midLat = (lat1 + lat2)/2;
+            const midLng = (lng1 + lng2)/2;
+            L.marker([midLat, midLng], {
+              icon: L.divIcon({
+                className:'road-label',
+                html: edge.name || '',
+                iconSize:[100,20]
+              })
+            }).addTo(map);
+          });
+
           alert(`Rute fundet!
 Distance: ${data.distanceKm} km
 Besøgte noder: ${data.visitedNodes.length}
-Beregnings tid: ${data.durationMs} ms`);
+Beregningstid: ${data.durationMs} ms`);
 
           cleanup();
         });
