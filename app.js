@@ -76,11 +76,26 @@ function dijkstra(start, end, graph, options = {}){
           temp = prev;
         }
       } else if(mode === 'shortestName'){
+        // Only include each road name once in the returned edges (so frontend shows each name once)
+        const seenNames = new Set();
         while(temp){
           const prev = previous[temp];
           if(prev){
             const edge = graph[prev][temp];
-            edges.unshift({ from: prev, to: temp, distance: edge.distance, name: edge.name });
+            if(edge.name){
+              const lname = edge.name.toLowerCase();
+              if(!seenNames.has(lname)){
+                edges.unshift({ from: prev, to: temp, distance: edge.distance, name: edge.name });
+                seenNames.add(lname);
+              }
+            } else {
+              // If no name, still include the edge (optional). Here we include it once using a placeholder key.
+              const key = `__unnamed_${prev}_${temp}`;
+              if(!seenNames.has(key)){
+                edges.unshift({ from: prev, to: temp, distance: edge.distance, name: edge.name });
+                seenNames.add(key);
+              }
+            }
           }
           path.unshift(temp);
           temp = prev;
@@ -213,5 +228,5 @@ app.post('/api/route', async (req,res)=>{
 app.use(express.static('public'));
 app.get('/',(req,res)=>res.sendFile(__dirname+'/public/index.html'));
 
-const PORT = 9090;
+const PORT = 1010;
 app.listen(PORT,()=>console.log(`Server kører på http://localhost:${PORT}`));
