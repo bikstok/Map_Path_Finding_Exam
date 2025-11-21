@@ -228,5 +228,18 @@ app.post('/api/route', async (req,res)=>{
 app.use(express.static('public'));
 app.get('/',(req,res)=>res.sendFile(__dirname+'/public/index.html'));
 
-const PORT = 1010;
-app.listen(PORT,()=>console.log(`Server kører på http://localhost:${PORT}`));
+// Start server only when run directly (not when required by tests)
+if(require.main === module){
+  const PORT = process.env.PORT || 8080;
+  app.listen(PORT,()=>console.log(`Server kører på http://localhost:${PORT}`));
+}
+
+// Export functions for unit tests and benchmarks
+module.exports = {
+  dijkstra,
+  buildGraph,
+  haversine,
+  findNearestNode,
+  loadGraph,
+  fetchOSMRoads
+};

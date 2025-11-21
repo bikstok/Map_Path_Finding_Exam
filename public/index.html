@@ -28,6 +28,10 @@
       <option value="shortestName">Minimer samlede længde af vejnavne</option>
     </select>
     <span>Valgt mode: <span id="currentMode">exclude</span></span>
+    <br/>
+    <label for="excludeInput">Udelad substrings (komma-separeret):</label>
+    <input id="excludeInput" type="text" placeholder="fx: Amager, Islands Brygge" style="width:300px" />
+    <small id="excludeHint">(lad være tom for standard: Amager)</small>
   </div>
 
   <div id="map"></div>
@@ -40,8 +44,18 @@
     let markers = [];
     const modeSelect = document.getElementById('modeSelect');
     const currentModeLabel = document.getElementById('currentMode');
+    const excludeInput = document.getElementById('excludeInput');
+    const excludeHint = document.getElementById('excludeHint');
+
     modeSelect.addEventListener('change', ()=>{
       currentModeLabel.textContent = modeSelect.value;
+    });
+
+    // Show the current exclude preview
+    excludeInput.addEventListener('input', ()=>{
+      const v = excludeInput.value.trim();
+      if(!v) excludeHint.textContent = '(lad være tom for standard: Amager)';
+      else excludeHint.textContent = `Udelukker: ${v}`;
     });
 
     map.on('click', e=>{
@@ -52,6 +66,10 @@
       markers.push(marker);
 
       if(clicks.length === 2){
+        // parse exclude input into array of trimmed substrings
+        const raw = excludeInput.value || '';
+        const excludeArr = raw.split(',').map(s=>s.trim()).filter(s=>s.length>0);
+
         fetch('/api/route',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
@@ -61,8 +79,7 @@
             endLat: clicks[1].lat,
             endLng: clicks[1].lng,
             mode: modeSelect.value,
-            // optionally pass exclude names as array, e.g. ['amager']
-            // excludeNames: ['amager']
+            excludeNames: excludeArr
           })
         })
         .then(res=>res.json())
