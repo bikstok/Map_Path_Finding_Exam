@@ -22,8 +22,12 @@
   <h2>Storkøbenhavn Korteste Vej Finder</h2>
 
   <div id="controls">
-    <button id="algoBtn">Skift algoritme</button>
-    <span>Valgt algoritme: <span id="currentAlgo">dijkstra</span></span>
+    <label for="modeSelect">Vælg rute-mode:</label>
+    <select id="modeSelect">
+      <option value="exclude">Udeluk bestemte vejnavne (fx "Amager")</option>
+      <option value="shortestName">Minimer samlede længde af vejnavne</option>
+    </select>
+    <span>Valgt mode: <span id="currentMode">exclude</span></span>
   </div>
 
   <div id="map"></div>
@@ -34,17 +38,10 @@
 
     let clicks = [];
     let markers = [];
-    let algorithm = 'dijkstra';
-    const algoOptions = ['dijkstra'];
-    let algoIndex = 0;
-
-    const algoBtn = document.getElementById('algoBtn');
-    const currentAlgoLabel = document.getElementById('currentAlgo');
-
-    algoBtn.addEventListener('click', ()=>{
-      algoIndex = (algoIndex+1)%algoOptions.length;
-      algorithm = algoOptions[algoIndex];
-      currentAlgoLabel.textContent = algorithm.toUpperCase();
+    const modeSelect = document.getElementById('modeSelect');
+    const currentModeLabel = document.getElementById('currentMode');
+    modeSelect.addEventListener('change', ()=>{
+      currentModeLabel.textContent = modeSelect.value;
     });
 
     map.on('click', e=>{
@@ -63,7 +60,9 @@
             startLng: clicks[0].lng,
             endLat: clicks[1].lat,
             endLng: clicks[1].lng,
-            algorithm
+            mode: modeSelect.value,
+            // optionally pass exclude names as array, e.g. ['amager']
+            // excludeNames: ['amager']
           })
         })
         .then(res=>res.json())

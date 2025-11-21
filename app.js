@@ -33,9 +33,12 @@ function findNearestNode(lat,lng,nodeCoords){
   return nearest;
 }
 
-// Dijkstra
-// Dijkstra med unikke vejnavne
-function dijkstra(start, end, graph){
+// Unified Dijkstra supporting modes:
+// mode: 'exclude' -> ignore edges with names that match excluded substrings and minimize distance
+// mode: 'shortestName' -> minimize total length of road names (use name.length as weight)
+function dijkstra(start, end, graph, options = {}){
+  const { mode = 'exclude', excludeNames = ['amager'] } = options;
+
   const distances = {};
   const previous = {};
   const visitedNodes = new Set();
@@ -57,35 +60,57 @@ function dijkstra(start, end, graph){
       let path = [];
       let edges = [];
       let temp = current;
-      const seenNames = new Set(); // til at tracke allerede tilføjede vejnavne
 
-      while(temp){
-        const prev = previous[temp];
-        if(prev){
-          const edge = graph[prev][temp];
-          // Tilføj kun hvis vejnavnet ikke er set før
-          if(edge.name && !seenNames.has(edge.name)){
-            edges.unshift({
-              from: prev,
-              to: temp,
-              distance: edge.distance,
-              name: edge.name
-            });
-            seenNames.add(edge.name);
+      if(mode === 'exclude'){
+        const seenNames = new Set();
+        while(temp){
+          const prev = previous[temp];
+          if(prev){
+            const edge = graph[prev][temp];
+            if(edge.name && !seenNames.has(edge.name)){
+              edges.unshift({ from: prev, to: temp, distance: edge.distance, name: edge.name });
+              seenNames.add(edge.name);
+            }
           }
+          path.unshift(temp);
+          temp = prev;
         }
-        path.unshift(temp);
-        temp = prev;
+      } else if(mode === 'shortestName'){
+        while(temp){
+          const prev = previous[temp];
+          if(prev){
+            const edge = graph[prev][temp];
+            edges.unshift({ from: prev, to: temp, distance: edge.distance, name: edge.name });
+          }
+          path.unshift(temp);
+          temp = prev;
+        }
       }
+
       return { path, edges, visitedNodes:[...visitedNodes] };
     }
 
     for(let neighbor in graph[current]){
       const edge = graph[current][neighbor];
 
-      if(edge.name && edge.name.toLowerCase().includes("amager")) continue;
+      // If in exclude mode and the edge name matches any excluded substring, skip it
+      if(mode === 'exclude' && edge.name){
+        const lname = edge.name.toLowerCase();
+        let skip = false;
+        for(const sub of excludeNames){
+          if(lname.includes(sub.toLowerCase())){ skip = true; break; }
+        }
+        if(skip) continue;
+      }
 
-      const alt = distances[current] + edge.distance;
+      let weight;
+      if(mode === 'shortestName'){
+        weight = edge.name ? edge.name.length : 0;
+      } else {
+        weight = edge.distance;
+      }
+
+      const alt = distances[current] + weight;
       if(alt < distances[neighbor]){
         distances[neighbor] = alt;
         previous[neighbor] = current;
@@ -161,13 +186,14 @@ app.post('/api/route', async (req,res)=>{
   if(!graphData) await loadGraph();
 
   const {startLat,startLng,endLat,endLng} = req.body;
+  const { mode, excludeNames } = req.body;
   const startNode = findNearestNode(startLat,startLng,graphData.nodeCoords);
   const endNode = findNearestNode(endLat,endLng,graphData.nodeCoords);
 
   if(!startNode || !endNode) return res.json({error:'Klik for langt fra veje i grafen.'});
 
   const startTime = Date.now();
-  const result = dijkstra(startNode,endNode,graphData.graph);
+  const result = dijkstra(startNode, endNode, graphData.graph, { mode: mode || 'exclude', excludeNames });
   const durationMs = Date.now()-startTime;
 
   if(result && result.path){
@@ -187,5 +213,5 @@ app.post('/api/route', async (req,res)=>{
 app.use(express.static('public'));
 app.get('/',(req,res)=>res.sendFile(__dirname+'/public/index.html'));
 
-const PORT = 8080;
+const PORT = 9090;
 app.listen(PORT,()=>console.log(`Server kører på http://localhost:${PORT}`));
