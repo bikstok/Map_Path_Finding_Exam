@@ -1,72 +1,92 @@
-## Ideer
+# Map Path Finding — Korteste vej finder
 
-1. En mode hvor man kun må dreje til højre for at finde vej.
-2. En mode hvor man kun på kører på veje med kvinde navne.
-3. Dikstra alogritme tilføjet.
-4. Sorter datastrukur bedre og så DFS bliver mere effektiv.
+Dette repository indeholder en lille Node/Express-backend og en simpel frontend (Leaflet) til at finde ruter på et vejnet hentet fra OpenStreetMap.
 
+Kort oversigt
+- `app.js` — Express-server, bygger graf (fra `storkbh_graph_name.json` eller via Overpass) og eksponerer `/api/route`.
+- `public/index.html` — simpel frontend hvor du klikker to punkter for at få en rute.
+- `test/test_dijkstra.js` — simple enhedstest for Dijkstra-varianterne.
+- `bench/benchmark.js` — micro-benchmark for at sammenligne to Dijkstra-modes.
 
+Krav
+- Node.js (anbefalet v16+)
+- Internetforbindelse første gang (for at hente vejdata fra Overpass API hvis `storkbh_graph_name.json` ikke findes)
 
+Installation
 
-## Reflections
+1. Åbn en terminal i projektmappen `Map_Path_Finding_Exam`.
+2. Installer afhængigheder:
 
-Efter jeg prøvede hele sjælland så sage den rute fundet besøgte 1 node.
-Når du prøver at bruge hele Sjælland som graf, er sandsynligheden for, at dit klik på kortet ikke matcher en node i grafen, enormt høj. Derfor finder algoritmen kun startnoden og “tænker” ruten er fundet – derfor “besøgte 1 node”.
+```bash
+npm install
+```
 
-Her er hvorfor det sker og hvordan du kan løse det:
+Start applikationen
 
-Problemer med store områder
+Serveren starter kun når du kører `app.js` direkte. Standardport er 8080, men du kan overstyre med miljøvariablen `PORT`.
 
-Klik passer ikke til nogen grafnode
+```bash
+# kør direkte
+node app.js
 
-Din findNearestNode leder efter den nærmeste node i grafen.
+# eller med port override
+PORT=8080 node app.js
 
-Grafen har måske kun hver 20.-50. vej-node med i JSON, så klik langt fra en node resulterer i meget få forbindelser.
+# alternativt (hvis du bruger nodemon) i dev
+npx nodemon app.js
+```
 
-DFS/A* starter på startnoden og kan ikke finde slutnoden, fordi slutnoden er langt fra alle inkluderede graf-noder.
+Bemærk: Første gang serveren starter og `storkbh_graph_name.json` ikke findes, henter den data fra Overpass API og gemmer grafen lokalt.
 
-Løsninger
-1️⃣ “Snap” klik til nærmeste node mere robust
+Frontend
+- Åbn: http://localhost:8889 (eller den port du valgte)
+- Klik to steder på kortet for at sætte start og slut.
+- Vælg mode i dropdown:
+  - `Udeluk...` (mode=`exclude`) — udelukker veje hvis navn matcher de angivne substrings (case-insensitivt) og minimerer geodetisk afstand.
+  - `Minimer samlede længde af vejnavne` (mode=`shortestName`) — bruger længden af vejnavne som vægt og minimerer den samlede navnelængde.
+- Du kan angive en komma-separeret liste af substrings i input-feltet for at sende `excludeNames` til serveren.
 
-Sørg for at findNearestNode altid finder den absolut nærmeste node i grafen.
+API
 
-Du kan også definere et max distance, så hvis klik er for langt fra graf, vises fejl i stedet for at returnere 1 node.
+POST /api/route
 
-function findNearestNode(lat, lng, nodeCoords){
-  let nearest = null;
-  let minDist = Infinity;
-  for(let node in nodeCoords){
-    const n = nodeCoords[node];
-    const d = haversine(lat, lng, n.lat, n.lon);
-    if(d < minDist){
-      minDist = d;
-      nearest = node;
-    }
-  }
-  if(minDist > 500){ // fx 500 meter
-    return null;   // klik for langt fra graf
-  }
-  return nearest;
+Eksempel JSON-body:
+
+```json
+{
+  "startLat": 55.676,
+  "startLng": 12.568,
+  "endLat": 55.68,
+  "endLng": 12.57,
+  "mode": "exclude",
+  "excludeNames": ["amager"]
 }
+```
 
+Response indeholder bl.a.: `path` (node id'er som "lat,lon"), `edges` (fra/to/distance/name), `visitedNodes` (array) og beregningstid `durationMs`.
 
-Hvis startNode eller endNode er null, skal du vise en alert:
+Tests og benchmark
 
-if(!startNode || !endNode){
-  alert('Klik for langt fra veje i grafen. Prøv tættere på byområde.');
-  return;
-}
+Kør enhedstests (enkeltstående script):
 
-2️⃣ Reducer grafen
+```bash
+node test/test_dijkstra.js
+# eller via npm
+npm run test
+```
 
-For store områder (Sjælland, hele Danmark) bliver grafen sparse, og ruter mellem vilkårlige punkter findes ikke.
+Kør micro-benchmark:
 
-Løsning:
+```bash
+node bench/benchmark.js
+# eller via npm
+npm run bench
+```
 
-Brug kun byer/områder hvor du forventer klik.
+Noter
+- Hvis du har en allerede kørende server (nodemon eller lign.) der binder porten, stop den før du kører testskripter, ellers kan `require('./app')` forsøge at starte serveren og konflikte.
+- Data i `storkbh_graph_name.json` kan være stor; slet filen for at tvinge en ny hentning fra Overpass.
 
-Eller lav flere “regioner” og beregn rute kun i region hvor klik sker.
-
-3️⃣ Overvej at filtrere
-
-Hent fx kun primære og sekundære veje i byområder i Sjælland, ellers bliver grafen for stor og diffus.
+Fejlfinding
+- Hvis port er i brug: find processen og stop den, eller start serveren med en anden port.
+- Hvis Overpass ikke svarer: vent eller reducer timeout i `fetchOSMRoads()` (kun aktuelt når graf skal hentes fra netværk).
