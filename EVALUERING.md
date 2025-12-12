@@ -1,3 +1,9 @@
+## Noter til eksamen
+
+Forklar hvorfor jeg har valgt dijkstra og ikke A*, BFS ELLER DFS. Forklar densitet i grafen og hvorfor dijkstra.
+
+
+
 ## Evaluering af valg af algoritme og datastruktur
 
 Dette dokument opsummerer og vurderer de tekniske valg i projektet: algoritme, datastruktur, kendte begrænsninger og mulige forbedringer.
